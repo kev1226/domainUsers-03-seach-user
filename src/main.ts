@@ -22,11 +22,11 @@ async function bootstrap() {
     transport: Transport.KAFKA,
     options: {
       client: {
-        clientId: 'search-user',
+        clientId: 'auth-service-login',
         brokers: ['3.232.44.31:9092'],
       },
       consumer: {
-        groupId: 'search-user-group',
+        groupId: 'auth-service-login-group',
       },
     },
   });
