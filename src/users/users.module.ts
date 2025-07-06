@@ -4,9 +4,15 @@ import { UsersController } from './users.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { UsersKafkaController } from './users.kafka.controller';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User])],
+  imports: [
+    JwtModule.register({
+      secret: 'kalemat2025',
+    }),
+    TypeOrmModule.forFeature([User]),
+  ],
   controllers: [UsersController, UsersKafkaController],
   providers: [UsersService],
   exports: [UsersService], // Exporting UsersService to be used in other modules
