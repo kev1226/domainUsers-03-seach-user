@@ -33,5 +33,5 @@ export class User {
 
   @ApiProperty({ type: Date, required: false })
   @DeleteDateColumn()
-  deleteAt: Date; // Soft deletion timestamp
+  deleteAd: Date; // Soft deletion timestamp
 }
