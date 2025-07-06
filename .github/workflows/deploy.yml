@@ -2,29 +2,34 @@ name: Build & Deploy search-user to EC2
 
 on:
   push:
-    branches: [qa]
+    branches:
+      - qa
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   build-and-deploy:
+    name: Build, Test, Push to DockerHub and Deploy to EC2
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-      - name: Set environment tag
-        id: vars
+      - name: Set deployment variables
+        id: set-vars
         run: |
           if [[ "${{ github.ref }}" == "refs/heads/qa" ]]; then
-            echo "tag=qa-latest" >> $GITHUB_OUTPUT
             echo "env=QA" >> $GITHUB_OUTPUT
+            echo "tag=qa-latest" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
-            echo "tag=latest" >> $GITHUB_OUTPUT
             echo "env=PROD" >> $GITHUB_OUTPUT
+            echo "tag=latest" >> $GITHUB_OUTPUT
           fi
 
-      - uses: actions/setup-node@v3
+      - name: Install dependencies and run tests
+        uses: actions/setup-node@v3
         with:
           node-version: 18
 
@@ -38,20 +43,31 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & Push Docker image
+      - name: Build Docker image
         run: |
-          IMAGE=kalemat/03-search-user:${{ steps.vars.outputs.tag }}
-          docker build -t $IMAGE .
-          docker push $IMAGE
+          docker build -t kalemat/03-search-user:${{ steps.set-vars.outputs.tag }} .
 
-      - name: Deploy to EC2
+      - name: Push Docker image to Docker Hub
+        run: |
+          docker push kalemat/03-search-user:${{ steps.set-vars.outputs.tag }}
+
+      - name: Connect and deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets[format('EC2_HOST_{0}', steps.vars.outputs.env)] }}
-          username: ${{ secrets[format('EC2_USER_{0}', steps.vars.outputs.env)] }}
-          key: ${{ secrets[format('EC2_KEY_{0}', steps.vars.outputs.env)] }}
+          host: ${{ secrets[format('EC2_HOST_{0}', steps.set-vars.outputs.env)] }}
+          username: ${{ secrets[format('EC2_USER_{0}', steps.set-vars.outputs.env)] }}
+          key: ${{ secrets[format('EC2_KEY_{0}', steps.set-vars.outputs.env)] }}
+          port: 22
+          timeout: 30s
+          command_timeout: 10m
           script: |
             docker stop 03-search-user || true
             docker rm 03-search-user || true
-            docker pull kalemat/03-search-user:${{ steps.vars.outputs.tag }}
-            docker run -d --name 03-search-user --restart always -p 3003:3003 kalemat/03-search-user:${{ steps.vars.outputs.tag }}
+
+            docker pull kalemat/03-search-user:${{ steps.set-vars.outputs.tag }}
+
+            docker run -d \
+              --name 03-search-user \
+              --restart always \
+              -p 3003:3003 \
+              kalemat/03-search-user:${{ steps.set-vars.outputs.tag }}
